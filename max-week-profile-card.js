@@ -10,8 +10,13 @@
  * = delete the section; input fields below the curve.
  * Selection at the top: Mon–Fri / Sat–Sun / All (group: every change applies to all days of the group; if the days
  * differ, a dialog asks which day to apply to all), next to it the single days.
- * readonly: true → display only (any entity with an attribute `programme`). Cards with the same `group` always show
- * the same day or group.
+ * readonly: true → display only (any entity with an attribute `programme`); with temperature_sensor it also draws that
+ * sensor's history (e.g. the room temperature measured by a boiler). Cards with the same `group` always show the same
+ * day or group.
+ * link_midnight: true → the section from 00:00 always has the temperature of the last section of the day (the night
+ *   runs through midnight); dragging either of them moves both, the first section cannot be deleted on its own.
+ * duty_cycle: sensor with the radio duty cycle in % (max2mqtt bridge) – shown next to the title.
+ * History (valve, actual temperature) is only loaded while the card is visible (e.g. inside a closed pop-up it waits).
  *
  * Toggle "Actual + valve": shows the actual temperature (°C axis) and the valve opening (0–100 %, right axis) –
  *   today = the last 24 h (00:00 to now from today, now to 24:00 from yesterday, paler), other days = the last past day.
@@ -22,9 +27,12 @@
  * Options: see README.md.
  */
 
-const VERSION = "0.10.0";
+const VERSION = "0.11.0";
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 const W = 1000, H = 308, PL = 40, PR = 10, PT = 50, PB = 24;
+const DUTY_WARN = 50, DUTY_ALARM = 80;   // duty cycle in %: from here yellow / red
+// history requests shared by all cards on the page (e.g. the same boiler card in several pop-ups), 5 min
+const HIST = new Map();
 
 // ── Texts: English and German, chosen by the Home Assistant language ──────────────────────────────
 const I18N = {
@@ -117,6 +125,12 @@ const I18N = {
     error: (e) => `Error: ${e}`,
     sending: "Sending …",
     sent: (days, n) => `Sent: ${days}${n > 1 ? ` to ${n} thermostats` : ""} – acknowledgement in a few seconds.`,
+    duty: (v) => `Radio ${v} %`,
+    dutyTitle: "Duty cycle of the radio bridge (100 % = nothing can be sent for the rest of the hour)",
+    actual: "Actual",
+    midHelp: " · 00:00 = last section (automatic)",
+    midAuto: "automatic: same as the last section",
+    midDiff: (list) => `00:00 differs from the last section on ${list} – aligned with the next change of that day`,
   },
   de: {
     days: { monday: "Mo", tuesday: "Di", wednesday: "Mi", thursday: "Do", friday: "Fr", saturday: "Sa", sunday: "So" },
@@ -205,6 +219,12 @@ const I18N = {
     error: (e) => `Fehler: ${e}`,
     sending: "Sende …",
     sent: (days, n) => `Gesendet: ${days}${n > 1 ? ` an ${n} Thermostate` : ""} – Quittung in einigen Sekunden.`,
+    duty: (v) => `Funk ${v} %`,
+    dutyTitle: "Funkauslastung der Bridge (100 % = bis zum Ende der Stunde kann nichts mehr gesendet werden)",
+    actual: "Ist",
+    midHelp: " · 00:00 = letzte Phase (automatisch)",
+    midAuto: "automatisch: wie die letzte Phase",
+    midDiff: (list) => `00:00 weicht von der letzten Phase ab: ${list} – wird bei der nächsten Änderung dieses Tages angeglichen`,
   },
 };
 let LANG = "en";
@@ -869,10 +889,22 @@ class MaxWeekProfileCard extends HTMLElement {
     };
     window.addEventListener("max-week-profile-day", this._onDay);
     this._timer = setInterval(() => this._renderSvg(), 60000);
+    // history only while visible (a closed pop-up must not load anything)
+    if (typeof IntersectionObserver === "undefined") this._visible = true;
+    else if (!this._io) {
+      this._io = new IntersectionObserver((es) => {
+        const v = es.some((e) => e.isIntersecting);
+        const was = this._visible;
+        this._visible = v;
+        if (v && !was) this._renderSvg();
+      });
+      this._io.observe(this);
+    }
   }
   disconnectedCallback() {
     window.removeEventListener("max-week-profile-day", this._onDay);
     clearInterval(this._timer);
+    if (this._io) { this._io.disconnect(); this._io = null; this._visible = false; }
   }
 
   set hass(hass) {
@@ -921,6 +953,31 @@ class MaxWeekProfileCard extends HTMLElement {
       if (rk !== this._refKey) { this._refKey = rk; this._ref = parseProgramme(r ? r.attributes.programme : null); changed = true; }
     }
     if ((!this._built || changed) && !this._dragging) this._render();
+    else this._live();
+  }
+  // values in the header (duty cycle, actual temperature of a read-only card): update without redrawing the card
+  _liveHtml() {
+    const t = T(), c = this._config, h = this._hass;
+    let out = "";
+    if (c.duty_cycle) {
+      const st = h && h.states[c.duty_cycle];
+      const v = st ? Number(st.state) : NaN;
+      const cls = !Number.isFinite(v) ? " na" : v >= DUTY_ALARM ? " alarm" : v >= DUTY_WARN ? " warn" : "";
+      out += `<span class="duty${cls}" title="${t.dutyTitle}">${t.duty(Number.isFinite(v) ? Math.round(v) : "–")}</span>`;
+    }
+    const ts = c.readonly ? this._tempSource() : null;
+    if (ts) {
+      const st = h && h.states[ts.ent];
+      const v = st ? Number(st.state) : NaN;
+      out += `<span class="istv">${c.temperature_name || t.actual} ${Number.isFinite(v) ? fmtT(Math.round(v * 10) / 10) : "–"} °C</span>`;
+    }
+    return out;
+  }
+  _live() {
+    const el = this.shadowRoot && this.shadowRoot.querySelector(".live");
+    if (!el) return;
+    const html = this._liveHtml();
+    if (html !== this._liveLast) { this._liveLast = html; el.innerHTML = html; }
   }
 
   getCardSize() { return this._config && this._config.readonly ? 4 : 9; }
@@ -986,18 +1043,22 @@ class MaxWeekProfileCard extends HTMLElement {
     return out;
   }
   _valveEntity() {
-    if (this._config.readonly || this._config.valve === false) return null;
+    if (this._config.valve === false || (this._config.readonly && !this._config.valve)) return null;
     const e = this._config.valve || `sensor.${String(this._config.entity).split(".")[1]}_valve_aperture`;
     return this._hass && this._hass.states[e] ? e : null;
   }
   // actual temperature: option temperature_sensor (sensor), otherwise attribute current_temperature of the climate entity
+  // (read-only cards: only temperature_sensor)
   _tempSource() {
-    if (this._config.readonly) return null;
     const e = this._config.temperature_sensor;
     if (e) return this._hass && this._hass.states[e] ? { ent: e, attr: false } : null;
-    return { ent: this._config.entity, attr: true };
+    return this._config.readonly ? null : { ent: this._config.entity, attr: true };
   }
-  _histAvailable() { return !this._config.readonly && (!!this._valveEntity() || !!this._tempSource()); }
+  _histAvailable() { return !!this._valveEntity() || !!this._tempSource(); }
+  // history shown? Editable cards: toggle "Actual + valve"; read-only cards: always (if a sensor is configured)
+  _histOn() { return (this._config.readonly || this._vOn) && this._histAvailable(); }
+  // section from 00:00 coupled to the last section of the day
+  _link() { return !!this._config.link_midnight; }
   _toggleValve() {
     this._vOn = !this._vOn;
     try { localStorage.setItem("max-week-profile-valve", this._vOn ? "1" : "0"); } catch (e) { /* ignore */ }
@@ -1017,9 +1078,16 @@ class MaxWeekProfileCard extends HTMLElement {
     const minOf = (ts) => { const t = new Date(ts); return t.getHours() * 60 + t.getMinutes() + t.getSeconds() / 60; };
     const nowMin = minOf(now.getTime());
     const fetch = async (ent, attr) => {
-      const r = await this._hass.callWS({ type: "history/history_during_period", start_time: start.toISOString(),
-        end_time: end.toISOString(), entity_ids: [ent], minimal_response: !attr, no_attributes: !attr,
-        significant_changes_only: false });
+      const key = `${ent}|${attr}|${d}|${mid.getTime()}`;
+      let c2 = HIST.get(key);
+      if (!c2 || Date.now() - c2.at >= 300000) {
+        c2 = { at: Date.now(), p: this._hass.callWS({ type: "history/history_during_period", start_time: start.toISOString(),
+          end_time: end.toISOString(), entity_ids: [ent], minimal_response: !attr, no_attributes: !attr,
+          significant_changes_only: false }) };
+        HIST.set(key, c2);
+        c2.p.catch(() => HIST.delete(key));
+      }
+      const r = await c2.p;
       return ((r && r[ent]) || []).map((x) => {
         const ts = x.lu !== undefined ? x.lu * 1000 : Date.parse(x.last_updated || x.last_changed);
         const raw = attr ? ((x.a || x.attributes || {}).current_temperature) : (x.s !== undefined ? x.s : x.state);
@@ -1069,7 +1137,8 @@ class MaxWeekProfileCard extends HTMLElement {
   _tempSvg() {
     const c = this._vcache[this._day];
     if (!c || !c.temp) return "";
-    return c.temp.filter((r) => r.pts.length).map((r) => `<path class="ist${r.old ? " old" : ""}" d="${this._stepPath(r, (v) => this._y(v))}"/>`).join("");
+    const ro = this._config.readonly ? " ro" : "";
+    return c.temp.filter((r) => r.pts.length).map((r) => `<path class="ist${ro}${r.old ? " old" : ""}" d="${this._stepPath(r, (v) => this._y(v))}"/>`).join("");
   }
   // days of group g grouped by content, largest group first
   _variants(g) {
@@ -1094,7 +1163,7 @@ class MaxWeekProfileCard extends HTMLElement {
     const ts = [];
     for (const src of [this._st.dev.prog, this._st.dev.orig, this._st.wun.prog, this._ref]) if (src) for (const d of DAYS) (src[d] || []).forEach((s) => ts.push(s.t));
     if (this._pred && this._pred[this._day]) this._pred[this._day].forEach((p) => ts.push(p.T));
-    const vc = this._vOn && this._vcache && this._vcache[this._day];
+    const vc = this._histOn() && this._vcache && this._vcache[this._day];
     if (vc && vc.temp) vc.temp.forEach((r) => r.pts.forEach((p) => ts.push(p.v)));
     let lo = ts.length ? Math.floor(Math.min(...ts)) - 1 : 10, hi = ts.length ? Math.ceil(Math.max(...ts)) + 1 : 24;
     if (this._config.y_min !== undefined) lo = this._config.y_min;
@@ -1147,6 +1216,20 @@ class MaxWeekProfileCard extends HTMLElement {
   _dlgCancel() { this._day = this._dlg.back; this._dlg = null; this._render(); }
   _say(msg, err = false) { this._msg = msg; this._msgErr = err; const el = this.shadowRoot.querySelector(".msg"); if (el) { el.textContent = msg; el.classList.toggle("err", err); } }
 
+  // days whose section from 00:00 differs from the last section (link_midnight; e.g. from the thermostat or a proposal)
+  _midDiffHtml() {
+    if (!this._link() || !this._prog) return "";
+    const days = DAYS.filter((d) => { const x = this._prog[d]; return x && x.length > 1 && x[0].t !== x[x.length - 1].t; });
+    if (!days.length) return "";
+    const lab = [];
+    if (days.length === DAYS.length) lab.push(grpN("all"));
+    else for (const g of ["wd", "we"]) {
+      if (GROUPS[g].every((d) => days.includes(d))) lab.push(grpN(g));
+      else GROUPS[g].filter((d) => days.includes(d)).forEach((d) => lab.push(dayS(d)));
+    }
+    return `<div class="sync">${T().midDiff(lab.join(", "))}</div>`;
+  }
+
   // ── drawing ───────────────────────────────────────────────────────────────
   _render() {
     if (!this._config) return;
@@ -1183,13 +1266,14 @@ class MaxWeekProfileCard extends HTMLElement {
       <ha-card>
         <div class="head">
           <span class="title">${title}</span>
+          ${this._config.duty_cycle || (ro && this._config.temperature_sensor) ? `<span class="live">${this._liveLast = this._liveHtml()}</span>` : ""}
           ${this._wishOn() ? `<span class="modes"><button class="mtab${this._mode === "wun" ? " on" : ""}${this._dirtyOf("wun").length ? " dirty" : ""}" data-mode="wun" title="${t.wishTitle}">${t.wish}</button><button class="mtab${this._mode === "dev" ? " on" : ""}${this._dirtyOf("dev").length ? " dirty" : ""}" data-mode="dev" title="${t.thermostatTitle}">${t.thermostat}</button></span>` : ""}
           <span class="tabs"><span class="gtabs">${gtabs}</span><span class="dtabs">${tabs}</span></span>
         </div>
         ${this._prog ? `<div class="chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"></svg></div>`
           : `<div class="empty">${t.empty}</div>`}
         ${ro || !this._prog ? "" : `
-          <div class="hint">${t.help}</div>
+          <div class="hint">${t.help}${this._link() ? t.midHelp : ""}</div>
           <div class="tools">
             <span class="copy">${this._histAvailable() ? `<button class="vtog${this._vOn ? " on" : ""}" data-act="valve" title="${t.valveTitle}">${t.valve}</button> ` : ""}${grp ? t.appliesTo(grpLong(grp)) : t.only(dayS(this._day))}</span>
             <span class="send">
@@ -1202,6 +1286,7 @@ class MaxWeekProfileCard extends HTMLElement {
           </div>
           <div class="msg${this._msgErr || problems.length ? " err" : ""}">${problems.length ? problems.join(" · ") : this._msg}</div>
           ${syncInfo}
+          ${this._midDiffHtml()}
           ${this._ackHtml()}
           ${this._hintsHtml()}
           <table class="rows"></table>`}
@@ -1244,7 +1329,7 @@ class MaxWeekProfileCard extends HTMLElement {
       g += `<rect class="forbid" x="${PL}" y="${y1}" width="${W - PL - PR}" height="${y2 - y1}"/>`;
     }
     // valve opening (toggle "Actual + valve")
-    if (this._vOn && this._histAvailable()) { g += this._valveSvg(); this._loadValve(this._day); }
+    if (this._histOn()) { g += this._valveSvg(); if (this._visible === true) this._loadValve(this._day); }
     // reference (dashed)
     const ref = this._ref && this._ref[this._day];
     if (ref) g += `<path class="ref" d="${this._path(ref)}"/>`;
@@ -1263,7 +1348,7 @@ class MaxWeekProfileCard extends HTMLElement {
     // curve
     g += `<path class="line${ro ? " ro" : ""}${this._mode === "wun" ? " wun" : ""}" d="${this._path(day)}"/>`;
     // actual temperature (toggle "Actual + valve")
-    if (this._vOn && this._histAvailable()) g += this._tempSvg();
+    if (this._histOn()) g += this._tempSvg();
     // labels + handles
     let start = 0;
     this._lastEdgeX = undefined; this._lastEdgeHigh = false;
@@ -1296,7 +1381,7 @@ class MaxWeekProfileCard extends HTMLElement {
       const i = this._sel, a = i > 0 ? day[i - 1].e : 0, s = day[i];
       const x1 = this._x(a), x2 = this._x(s.e), y = this._y(s.t);
       g = g.replace(`<line class="hit seg" data-seg="${i}"`, `<line class="selline" x1="${x1}" x2="${x2}" y1="${y}" y2="${y}"/><line class="hit seg" data-seg="${i}"`);
-      if (day.length > 1) {
+      if (day.length > 1 && this._deletable(i, day)) {
         const cx = Math.min(W - PR - 14, Math.max(PL + 14, (x1 + x2) / 2)), cy = y + (y > PT + 60 ? -34 : 30);
         g += `<g class="delbtn" data-delsel="${i}"><circle cx="${cx}" cy="${cy}" r="13"/><text x="${cx}" y="${cy + 5}" text-anchor="middle">✕</text></g>`;
       }
@@ -1333,8 +1418,8 @@ class MaxWeekProfileCard extends HTMLElement {
       h += `<tr class="${this._forbidden(s.t) ? "bad" : ""}${i === this._sel ? " sel" : ""}">
         <td>${toHHMM(start)}</td>
         <td>${last ? "24:00" : `<input type="time" step="${this._config.step_minutes * 60}" data-i="${i}" data-f="e" value="${toHHMM(s.e)}">`}</td>
-        <td><input type="number" step="${this._config.temp_step}" min="${min}" max="${max}" data-i="${i}" data-f="t" value="${s.t}"></td>
-        <td>${day.length > 1 ? `<button data-del="${i}" title="${t.delSection}">✕</button>` : ""}</td></tr>`;
+        <td><input type="number" step="${this._config.temp_step}" min="${min}" max="${max}" data-i="${i}" data-f="t" value="${s.t}"${this._link() && i === 0 && day.length > 1 ? ` disabled title="${t.midAuto}"` : ""}></td>
+        <td>${day.length > 1 && this._deletable(i, day) ? `<button data-del="${i}" title="${t.delSection}">✕</button>` : ""}</td></tr>`;
       start = s.e;
     });
     h += `<tr><td colspan="4"><button data-add="1">${t.addSection}</button></td></tr>`;
@@ -1347,6 +1432,14 @@ class MaxWeekProfileCard extends HTMLElement {
   // ── editing ───────────────────────────────────────────────────────────────
   // after every change: in a group the day shown applies to all days of the group
   _changed() {
+    // link_midnight: the section from 00:00 takes the temperature of the last section (equal neighbours merge)
+    const cur = this._prog[this._day];
+    if (this._link() && cur && cur.length > 1) {
+      cur[0].t = cur[cur.length - 1].t;
+      const n = normalize(cur);
+      if (n.length !== cur.length) this._sel = null;
+      this._prog[this._day] = n;
+    }
     const g = this._grp && this._grp !== "auto" ? this._grp : null;
     if (g && this._prog[this._day]) for (const d of GROUPS[g]) if (d !== this._day) this._prog[d] = clone(this._prog[this._day]);
     if (this._mode === "dev") this._sent = null;
@@ -1371,9 +1464,11 @@ class MaxWeekProfileCard extends HTMLElement {
     this._changed();
   }
 
+  // link_midnight: the first and the last section belong together (the night) and are not deleted on their own
+  _deletable(i, day) { return !this._link() || (i > 0 && i < day.length - 1); }
   _delete(i) {
     const day = this._prog[this._day];
-    if (day.length < 2) return;
+    if (day.length < 2 || !this._deletable(i, day)) return;
     // the left temperature fills the gap (for the first section only the right one can)
     if (i > 0) day[i - 1].e = day[i].e;
     day.splice(i, 1);
@@ -1392,6 +1487,20 @@ class MaxWeekProfileCard extends HTMLElement {
     const a = Math.max(s + st, Math.min(e - st, Math.round(m / st) * st));
     const { min, max } = this._limits();
     const old = day[i].t, next = day[i + 1] ? day[i + 1].t : null;
+    if (this._link() && i === day.length - 1) {
+      // link_midnight, last section (the night): it keeps its temperature, the new section comes before it
+      const prev = i > 0 ? day[i - 1].t : null;
+      let t = Math.min(max, old + 1);
+      if (t === prev || t === old) t = Math.max(min, old - 1);
+      if (i === 0) {
+        // only one section all day: new section of 1 h in the middle, the night stays on both sides
+        const a2 = Math.min(a, e - 2 * st), b = Math.min(e - st, a2 + 60);
+        day.splice(0, 1, { t: old, e: a2 }, { t, e: b }, { t: old, e });
+      } else day.splice(i, 1, { t, e: a }, { t: old, e });
+      this._sel = i;
+      this._changed();
+      return;
+    }
     let t = Math.min(max, old + 1);
     if (t === next || t === old) t = Math.max(min, old - 1);
     day.splice(i, 1, { t: old, e: a }, { t, e });
@@ -1438,8 +1547,13 @@ class MaxWeekProfileCard extends HTMLElement {
       if (drag.kind === "t") {
         const dt = ((drag.y0 - q.y) / (H - PT - PB)) * (hi - lo);
         d[drag.i].t = Math.min(max, Math.max(min, Math.round((drag.t0 + dt) / ts) * ts));
+        // link_midnight: first and last section move together
+        if (this._link() && d.length > 1 && (drag.i === 0 || drag.i === d.length - 1)) d[drag.i === 0 ? d.length - 1 : 0].t = d[drag.i].t;
       } else {
-        const a = drag.i > 0 ? d[drag.i - 1].e : 0, b = d[drag.i + 1].e;
+        // link_midnight: the first and the last section keep at least one step (the night is not dragged away)
+        const lk = this._link();
+        const a = drag.i > 0 ? d[drag.i - 1].e : lk ? st : 0;
+        const b = lk && drag.i === d.length - 2 ? d[drag.i + 1].e - st : d[drag.i + 1].e;
         d[drag.i].e = Math.max(a, Math.min(b, Math.round(this._toMinute(q.x) / st) * st));
       }
       drag.moved = true;
@@ -1670,6 +1784,7 @@ class MaxWeekProfileCard extends HTMLElement {
 }
 
 const CSS = `
+  :host { display: block; }
   ha-card { padding: 8px 12px 10px; }
   .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .title { font-weight: 500; color: var(--primary-text-color); }
@@ -1748,6 +1863,12 @@ const CSS = `
   .dlg select { font: inherit; color: var(--primary-text-color); background: var(--input-fill-color, #252a30); border: 1px solid var(--divider-color, #3a4148);
     border-radius: 3px; padding: 3px 6px; color-scheme: dark; }
   .dlg-btn { display: flex; justify-content: flex-end; gap: 6px; }
+  .live { display: flex; gap: 10px; margin-right: auto; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .duty { color: var(--secondary-text-color); }
+  .duty.warn { color: var(--warning-color, #e0a030); } .duty.alarm { color: var(--error-color, #c0392b); font-weight: 500; }
+  .istv { color: #e06c9f; opacity: .8; }
+  .ist.ro { opacity: .6; } .ist.ro.old { opacity: .3; }
+  input:disabled { opacity: .55; }
 `;
 
 if (!customElements.get("max-week-profile-card")) customElements.define("max-week-profile-card", MaxWeekProfileCard);
