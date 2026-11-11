@@ -304,11 +304,17 @@ function computeProposal(inp) {
   // intervals [from, to] with manual change/skip (+ 60 min after-effect)
   const bad = [];
   const handList = [];
+  // setpoint of the manual change in progress; kept across radio dropouts (unavailable/unknown), so the same
+  // change is not listed again each time the thermostat comes back (outages still count as skipped intervals)
+  let run = null;
   marks.forEach((m, i) => {
+    const outage = C[i].mode === "unavailable" || C[i].mode === "unknown";
+    if (!outage && !m.hand) run = null;
     if (!m.hand && !m.skip) return;
     const until = i + 1 < marks.length ? marks[i + 1].ts : now;
     bad.push([m.ts, until + 3600000]);
-    if (m.hand && !(i && marks[i - 1].hand && marks[i - 1].soll === m.soll)) handList.push({ ts: m.ts, soll: m.soll });
+    if (m.hand && run !== m.soll) handList.push({ ts: m.ts, soll: m.soll });
+    if (m.hand) run = m.soll;
   });
   const isBad = (a, b) => bad.some(([x, y]) => x < b && y > a);
 
@@ -1662,10 +1668,7 @@ class MaxWeekProfileCard extends HTMLElement {
         if (prog) lp = prog;
         return { ts: x.lu !== undefined ? x.lu * 1000 : Date.parse(x.last_updated), ist: a.current_temperature ?? null,
           soll: a.temperature ?? null, prog: prog || lp, mode: x.s !== undefined ? x.s : x.state, preset: a.preset_mode };
-      }).filter((x) => Number.isFinite(x.ts)).sort((a, b) => a.ts - b.ts)
-        // short dropouts (unavailable/unknown < 10 min) are radio gaps, not changes: drop them, so one manual
-        // change is not counted again each time the thermostat comes back
-        .filter((x, i, a) => !(["unavailable", "unknown"].includes(x.mode) && i + 1 < a.length && a[i + 1].ts - x.ts < 600000));
+      }).filter((x) => Number.isFinite(x.ts)).sort((a, b) => a.ts - b.ts);
       const ve = this._valveEntity();
       const V = ve ? (await this._fetchHist(ve, false, start)).map((x) => ({ ts: x.lu * 1000, v: Number(x.s) }))
         .filter((x) => Number.isFinite(x.v) && Number.isFinite(x.ts)).sort((a, b) => a.ts - b.ts) : [];
