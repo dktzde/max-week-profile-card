@@ -27,7 +27,7 @@
  * Options: see README.md.
  */
 
-const VERSION = "0.11.0";
+const VERSION = "0.11.1";
 // escape text from the configuration before it goes into innerHTML
 const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -304,11 +304,17 @@ function computeProposal(inp) {
   // intervals [from, to] with manual change/skip (+ 60 min after-effect)
   const bad = [];
   const handList = [];
+  // setpoint of the manual change in progress; kept across radio dropouts (unavailable/unknown), so the same
+  // change is not listed again each time the thermostat comes back (outages still count as skipped intervals)
+  let run = null;
   marks.forEach((m, i) => {
+    const outage = C[i].mode === "unavailable" || C[i].mode === "unknown";
+    if (!outage && !m.hand) run = null;
     if (!m.hand && !m.skip) return;
     const until = i + 1 < marks.length ? marks[i + 1].ts : now;
     bad.push([m.ts, until + 3600000]);
-    if (m.hand && !(i && marks[i - 1].hand && marks[i - 1].soll === m.soll)) handList.push({ ts: m.ts, soll: m.soll });
+    if (m.hand && run !== m.soll) handList.push({ ts: m.ts, soll: m.soll });
+    if (m.hand) run = m.soll;
   });
   const isBad = (a, b) => bad.some(([x, y]) => x < b && y > a);
 

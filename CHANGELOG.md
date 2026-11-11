@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.1 (pre-release)
+<sub>2026-11-11</sub>
+
+- "Calculate setpoints": radio dropouts (unavailable/unknown) no longer split one manual change into several ✋ hints; the dropouts themselves are still skipped when learning.
+- The configured `title` and `temperature_name` are escaped before they are shown (they could be read as HTML).
+
 ## 0.11.0 (pre-release)
 <sub>2026-11-07</sub>
 
