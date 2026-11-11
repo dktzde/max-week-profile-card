@@ -19,7 +19,9 @@ A Lovelace card to edit the weekly heating programme of eQ-3 MAX! radiator therm
 - Sends only the changed days. Acknowledgement per day (✓ / ⏳ / ✗) with max2mqtt ≥ 1.6.2.
 - Toggle "Actual + valve": actual temperature and valve opening of the last 24 h (or of the last same weekday).
 - Several thermostats in one room (`sync_entities`) get the same programme.
-- Read-only mode, for example to show another programme as a curve.
+- Read-only mode, for example to show another programme as a curve – optionally with a sensor's history (e.g. the boiler's room temperature).
+- Optional: night through midnight (`link_midnight`), radio duty cycle next to the title (`duty_cycle`).
+- History is loaded only while the card is visible (e.g. inside a pop-up) and shared between cards.
 - English and German, following the Home Assistant language.
 
 ## Installation
@@ -48,7 +50,10 @@ entity: climate.max_living_room   # climate entity of max2mqtt (attribute "progr
 | `y_min` / `y_max` | automatic | Fixed temperature axis |
 | `sync_entities` | – | More climate entities in the same room: they get the same programme, differences are shown and sent |
 | `valve` | `sensor.<climate name>_valve_aperture` | Valve opening sensor for "Actual + valve"; `false` hides it |
-| `temperature_sensor` | `current_temperature` of the entity | Room sensor for the actual temperature |
+| `temperature_sensor` | `current_temperature` of the entity | Room sensor for the actual temperature; on a `readonly` card its history is always drawn (e.g. the room temperature measured by a boiler) |
+| `temperature_name` | `Actual` | Label of the current `temperature_sensor` value in the title row of a `readonly` card |
+| `link_midnight` | `false` | The section from 00:00 always has the temperature of the last section of the day (the night runs through midnight); dragging either moves both |
+| `duty_cycle` | – | Sensor with the radio duty cycle in % (max2mqtt bridge), shown next to the title (yellow from 50 %, red from 80 %) |
 | `send_script` | – | Send through your own script instead of the text entities (see below) |
 | `readonly` | `false` | Display only |
 | `reference` | – | Second entity with `programme`, drawn dashed |

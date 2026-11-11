@@ -46,7 +46,9 @@ Alle Optionen stehen in der [englischen README](README.md#configuration). Die wi
 | `sync_entities` | – | Weitere Thermostate im selben Raum bekommen dasselbe Programm |
 | `valve` | `sensor.<climate-Name>_valve_aperture` | Ventilöffnung für „Ist + Ventil“; `false` blendet aus |
 | `send_script` | – | Über ein eigenes Skript senden statt über die Text-Entitäten |
-| `readonly` | `false` | Nur Anzeige |
+| `readonly` | `false` | Nur Anzeige; mit `temperature_sensor` immer mit dessen Verlauf (z. B. Raumtemperatur laut Kessel) |
+| `link_midnight` | `false` | Der Abschnitt ab 00:00 hat immer die Temperatur der letzten Phase des Tages (die Nacht läuft über Mitternacht) |
+| `duty_cycle` | – | Sensor mit der Funkauslastung in % (max2mqtt-Bridge), steht neben der Überschrift |
 | `language` | Sprache von HA | `en` oder `de` |
 
 ### Experimentell: „Soll berechnen“

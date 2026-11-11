@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.1 (pre-release)
+<sub>2026-11-11</sub>
+
+- "Calculate setpoints": radio dropouts (unavailable/unknown) no longer split one manual change into several ✋ hints; the dropouts themselves are still skipped when learning.
+- The configured `title` and `temperature_name` are escaped before they are shown (they could be read as HTML).
+
+## 0.11.0 (pre-release)
+<sub>2026-11-07</sub>
+
+- `link_midnight`: the section from 00:00 always takes the temperature of the last section of the day; dragging either moves both, the first and the last section cannot be deleted on their own, a double-click into the night adds the new section before it. Days that differ (e.g. from the thermostat) are listed and aligned with the next change of that day.
+- `duty_cycle`: radio duty cycle of the max2mqtt bridge next to the title, updated without redrawing the card.
+- Read-only cards draw the history of `temperature_sensor` (label `temperature_name`, current value in the title row).
+- History is only loaded while the card is visible (a closed pop-up loads nothing), and the same request is shared by all cards on the page.
+
 ## 0.10.0 (pre-release)
 <sub>2026-11-06</sub>
 
