@@ -27,7 +27,7 @@
  * Options: see README.md.
  */
 
-const VERSION = "0.11.0";
+const VERSION = "0.11.1";
 // escape text from the configuration before it goes into innerHTML
 const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -1662,7 +1662,10 @@ class MaxWeekProfileCard extends HTMLElement {
         if (prog) lp = prog;
         return { ts: x.lu !== undefined ? x.lu * 1000 : Date.parse(x.last_updated), ist: a.current_temperature ?? null,
           soll: a.temperature ?? null, prog: prog || lp, mode: x.s !== undefined ? x.s : x.state, preset: a.preset_mode };
-      }).filter((x) => Number.isFinite(x.ts)).sort((a, b) => a.ts - b.ts);
+      }).filter((x) => Number.isFinite(x.ts)).sort((a, b) => a.ts - b.ts)
+        // short dropouts (unavailable/unknown < 10 min) are radio gaps, not changes: drop them, so one manual
+        // change is not counted again each time the thermostat comes back
+        .filter((x, i, a) => !(["unavailable", "unknown"].includes(x.mode) && i + 1 < a.length && a[i + 1].ts - x.ts < 600000));
       const ve = this._valveEntity();
       const V = ve ? (await this._fetchHist(ve, false, start)).map((x) => ({ ts: x.lu * 1000, v: Number(x.s) }))
         .filter((x) => Number.isFinite(x.v) && Number.isFinite(x.ts)).sort((a, b) => a.ts - b.ts) : [];
