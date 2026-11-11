@@ -28,6 +28,8 @@
  */
 
 const VERSION = "0.11.0";
+// escape text from the configuration before it goes into innerHTML
+const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 const W = 1000, H = 308, PL = 40, PR = 10, PT = 50, PB = 24;
 const DUTY_WARN = 50, DUTY_ALARM = 80;   // duty cycle in %: from here yellow / red
@@ -969,7 +971,7 @@ class MaxWeekProfileCard extends HTMLElement {
     if (ts) {
       const st = h && h.states[ts.ent];
       const v = st ? Number(st.state) : NaN;
-      out += `<span class="istv">${c.temperature_name || t.actual} ${Number.isFinite(v) ? fmtT(Math.round(v * 10) / 10) : "–"} °C</span>`;
+      out += `<span class="istv">${esc(c.temperature_name || t.actual)} ${Number.isFinite(v) ? fmtT(Math.round(v * 10) / 10) : "–"} °C</span>`;
     }
     return out;
   }
@@ -1265,7 +1267,7 @@ class MaxWeekProfileCard extends HTMLElement {
       <style>${CSS}</style>
       <ha-card>
         <div class="head">
-          <span class="title">${title}</span>
+          <span class="title">${esc(title)}</span>
           ${this._config.duty_cycle || (ro && this._config.temperature_sensor) ? `<span class="live">${this._liveLast = this._liveHtml()}</span>` : ""}
           ${this._wishOn() ? `<span class="modes"><button class="mtab${this._mode === "wun" ? " on" : ""}${this._dirtyOf("wun").length ? " dirty" : ""}" data-mode="wun" title="${t.wishTitle}">${t.wish}</button><button class="mtab${this._mode === "dev" ? " on" : ""}${this._dirtyOf("dev").length ? " dirty" : ""}" data-mode="dev" title="${t.thermostatTitle}">${t.thermostat}</button></span>` : ""}
           <span class="tabs"><span class="gtabs">${gtabs}</span><span class="dtabs">${tabs}</span></span>
