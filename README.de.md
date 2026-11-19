@@ -4,6 +4,8 @@
 
 Eine Lovelace-Karte, mit der du das Wochenprogramm von eQ-3-MAX!-Heizkörperthermostaten als Kurve bearbeitest. Stufe nach oben/unten ziehen = Temperatur, Kante zur Seite ziehen = Uhrzeit (5-Minuten- und 0,5-°C-Raster). Mo–Fr, Sa–So oder alle Tage auf einmal bearbeiten. Gesendet werden nur geänderte Tage – so bleibt der Funk im Duty Cycle. Nach dem Senden zeigt die Karte je Tag, ob das Thermostat bestätigt hat.
 
+![Screenshot der Karte: Wochenprogramm Mo–Fr als Kurve, mit Wunschkurve, Ist-Temperatur und den Feldern darunter](https://raw.githubusercontent.com/dktzde/max-week-profile-card/main/images/screenshot.jpg)
+
 **Voraussetzung: [max2mqtt](https://github.com/dktzde/max2mqtt)**, das Home-Assistant-Add-on für MAX!-Thermostate und Fensterkontakte über einen CUL-/CUN-Stick – ganz ohne MAX! Cube. max2mqtt merkt sich das Wochenprogramm jedes Thermostats. Die Thermostate selbst lassen sich nicht auslesen, nur so wird das Programm überhaupt sichtbar. Noch kein max2mqtt? Probier es aus – dann hat die Karte auch etwas zu zeigen.
 
 **Du hast schon einen MAX! Cube?** Dann kannst du ihn einfach flashen und als CUN im Netzwerk mit max2mqtt weiter nutzen. **Vor dem Flashen unbedingt die [Umstiegsanleitung](https://github.com/dktzde/max2mqtt#start-here-gateway_id) lesen** – du brauchst die RF-Adresse des Cubes, und das Flashen löscht die Cube-Firmware endgültig.

@@ -2,7 +2,7 @@
 
 Handover file for the maintainer and for Claude Code sessions working on this repository. **Read this first, and update it after every step** (state, decisions, next steps), so the next session can continue without the chat history.
 
-Last updated: 2026-11-19 (0.11.1 marked as stable)
+Last updated: 2026-11-19 (screenshot, HACS validation workflow)
 
 ## Current state
 
@@ -15,7 +15,7 @@ Last updated: 2026-11-19 (0.11.1 marked as stable)
 
 0. Check 0.11.1 in the browser (pop-ups, duty cycle, midnight link, ✋ hints).
 1. Check 0.10.0 in the browser (PC and phone): drag, double-click, dialog, send, acknowledgement, "Actual + valve", German and English.
-2. Screenshot for the README.
+2. ~~Screenshot for the README~~ – added 2026-11-19 (`images/screenshot.jpg`, German texts, linked with a full URL so HACS shows it too).
 3. "Calculate setpoints": document the helper script and sensor (wish storage) or make the storage part of the card.
 
 ## Known issues and backlog
