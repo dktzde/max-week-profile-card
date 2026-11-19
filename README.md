@@ -4,6 +4,8 @@
 
 A Lovelace card to edit the weekly heating programme of eQ-3 MAX! radiator thermostats as a curve. Drag a step up or down to change the temperature, drag an edge sideways to change the time (5-minute and 0.5 °C steps). Edit Mon–Fri, Sat–Sun or all days at once. Only changed days are sent, which keeps the radio within its duty cycle. After sending, the card shows per day whether the thermostat confirmed it.
 
+![Screenshot of the card (German texts): week programme Mon–Fri as a curve, with the wish curve, the actual temperature and the fields below](https://raw.githubusercontent.com/dktzde/max-week-profile-card/main/images/screenshot.jpg)
+
 **Requires [max2mqtt](https://github.com/dktzde/max2mqtt)**, the Home Assistant add-on that connects MAX! thermostats and window sensors over a CUL/CUN stick – no MAX! Cube needed. max2mqtt keeps a copy of every thermostat's week programme. The thermostats themselves can't be read, so this is the only way to see the programme at all. No max2mqtt yet? Give it a try – then the card has something to show.
 
 **Already own a MAX! Cube?** You can simply flash it and keep using it on your network as a CUN with max2mqtt. **Before flashing, be sure to read the [migration guide](https://github.com/dktzde/max2mqtt#start-here-gateway_id)** – you need the Cube's RF address, and flashing erases the Cube firmware for good.
