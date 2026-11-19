@@ -2,8 +2,6 @@
 
 [Deutsch](README.de.md)
 
-> ⚠️ **Pre-release – work in progress.** This card is used daily in my own home, but options, behaviour and texts may still change between versions. Please report problems as [issues](https://github.com/dktzde/max-week-profile-card/issues).
-
 A Lovelace card to edit the weekly heating programme of eQ-3 MAX! radiator thermostats as a curve. Drag a step up or down to change the temperature, drag an edge sideways to change the time (5-minute and 0.5 °C steps). Edit Mon–Fri, Sat–Sun or all days at once. Only changed days are sent, which keeps the radio within its duty cycle. After sending, the card shows per day whether the thermostat confirmed it.
 
 **Requires [max2mqtt](https://github.com/dktzde/max2mqtt)**, the Home Assistant add-on that connects MAX! thermostats and window sensors over a CUL/CUN stick – no MAX! Cube needed. max2mqtt keeps a copy of every thermostat's week programme. The thermostats themselves can't be read, so this is the only way to see the programme at all. No max2mqtt yet? Give it a try – then the card has something to show.
@@ -26,7 +24,7 @@ A Lovelace card to edit the weekly heating programme of eQ-3 MAX! radiator therm
 
 ## Installation
 
-**HACS** (recommended): HACS → ⋮ → Custom repositories → `https://github.com/dktzde/max-week-profile-card`, type **Dashboard**. Install "MAX! Week Profile Card" and reload the browser. Pre-releases are only listed when you enable "Show beta versions" for this repository in HACS.
+**HACS** (recommended): HACS → ⋮ → Custom repositories → `https://github.com/dktzde/max-week-profile-card`, type **Dashboard**. Install "MAX! Week Profile Card" and reload the browser.
 
 **Manual:** copy `max-week-profile-card.js` to `/config/www/max-week-profile-card/` and add it as a dashboard resource: `/local/max-week-profile-card/max-week-profile-card.js` (type JavaScript module).
 
