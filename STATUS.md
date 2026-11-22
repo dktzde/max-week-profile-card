@@ -2,20 +2,20 @@
 
 Handover file for the maintainer and for Claude Code sessions working on this repository. **Read this first, and update it after every step** (state, decisions, next steps), so the next session can continue without the chat history.
 
-Last updated: 2026-11-19 (screenshot, HACS validation workflow)
+Last updated: 2026-11-22 (0.11.1 checked in the browser, installed from the Marketplace)
 
 ## Current state
 
-- **HACS validation (2026-11-19):** workflow `.github/workflows/hacs.yml` runs `hacs/action` (category `plugin`) on every pull request, on pushes to `main`, on the 7th of every month and on demand. It must stay green before the repository can be submitted to the HACS default list (`hacs/default`, not submitted yet).
-- **0.11.1 (2026-11-11), stable since 2026-11-19** (PR #3 and #2 merged; GitHub release `v0.11.1` was a pre-release until 2026-11-19, then marked as stable and latest; pre-release notes removed from the READMEs): radio dropouts (unavailable/unknown) no longer count as new manual changes in "Calculate setpoints" (dropouts stay skipped intervals, CodeRabbit on PR #3) (real history of one night: 8 ✋ entries before, 1 after); configured `title` and `temperature_name` are escaped (CodeRabbit on PR #2). **On the device since 2026-11-11** – not checked in a browser yet.
-- **0.11.0 (2026-11-07), merged with 0.11.1 (no own release):** `link_midnight`, `duty_cycle`, history of `temperature_sensor` on read-only cards, history only while visible and shared between cards. Tested in Node with a mocked Home Assistant and DOM (24 checks: coupling via field, drag, insert, delete, edges, groups, unchanged without the option, live duty cycle, read-only history, nothing loaded while hidden, one shared request). **On the device since 2026-11-07 15:00** in the maintainer's new heating dashboard (one pop-up per room, boiler card on top) – not checked in a browser yet.
+- **HACS validation (2026-11-19):** workflow `.github/workflows/hacs.yml` runs `hacs/action` (category `plugin`) on every pull request, on pushes to `main`, on the 7th of every month and on demand. It keeps the repository installable as a custom repository. Submitting to the HACS default list (`hacs/default`) was dropped by the maintainer on 2026-11-22.
+- **0.11.1 (2026-11-11), stable since 2026-11-19** (PR #3 and #2 merged; GitHub release `v0.11.1` was a pre-release until 2026-11-19, then marked as stable and latest; pre-release notes removed from the READMEs): radio dropouts (unavailable/unknown) no longer count as new manual changes in "Calculate setpoints" (dropouts stay skipped intervals, CodeRabbit on PR #3) (real history of one night: 8 ✋ entries before, 1 after); configured `title` and `temperature_name` are escaped (CodeRabbit on PR #2). **On the device since 2026-11-11; since 2026-11-22 installed as a custom repository from the Home Assistant Marketplace** (release `v0.11.1`, file identical to the repository) instead of a manually copied file. **Checked by the maintainer on 2026-11-22** in the browser on PC and phone with German texts: pop-ups, duty cycle, midnight link, ✋ hints, "Calculate setpoints" (day/eco, overshoot, forecast, acknowledgement), only one ✋ entry per real manual change. Not checked yet: English texts.
+- **0.11.0 (2026-11-07), merged with 0.11.1 (no own release):** `link_midnight`, `duty_cycle`, history of `temperature_sensor` on read-only cards, history only while visible and shared between cards. Tested in Node with a mocked Home Assistant and DOM (24 checks: coupling via field, drag, insert, delete, edges, groups, unchanged without the option, live duty cycle, read-only history, nothing loaded while hidden, one shared request). **On the device since 2026-11-07 15:00** in the maintainer's new heating dashboard (one pop-up per room, boiler card on top); checked in the browser with 0.11.1 on 2026-11-22.
 - **0.10.0 (2026-11-06), pre-release:** first public version, English/German texts. Tested in Node with a mocked Home Assistant (render in `en` and `de`, insert/delete, group dialog, blocked temperature, send via text entities, acknowledgement, "Calculate setpoints" with synthetic history). Not checked in a browser yet.
 - **On the device:** the German test version 0.9.2 ran in the maintainer's Home Assistant since 2026-11-04 (kitchen, one more room, living room with three thermostats); sending a day was acknowledged on 2026-11-05. 0.10.0 not checked on the device yet.
 
 ## Next steps
 
-0. Check 0.11.1 in the browser (pop-ups, duty cycle, midnight link, ✋ hints).
-1. Check 0.10.0 in the browser (PC and phone): drag, double-click, dialog, send, acknowledgement, "Actual + valve", German and English.
+0. ~~Check 0.11.1 in the browser~~ – done 2026-11-22 (PC and phone, German texts).
+1. Check the English texts in the browser (Home Assistant language set to English).
 2. ~~Screenshot for the README~~ – added 2026-11-19 (`images/screenshot.jpg`, German texts, linked with a full URL so HACS shows it too).
 3. "Calculate setpoints": document the helper script and sensor (wish storage) or make the storage part of the card.
 
